@@ -1,4 +1,8 @@
+import os
+from tarfile import BLOCKSIZE
+os.environ["NUMBA_CACHE_DIR"] = "/tmp"
 import librosa
+from librosa.beat import plp
 import numpy as np
 
 class Analyzer:
@@ -6,14 +10,16 @@ class Analyzer:
         self.audioChunks = np.zeros((0, numChannels))
         self.lengths = [] #contains lengths of last eight blocks
     
-    def readData(self, chunk, samplerate):
+    def readData(self, chunk, samplerate, chunkSize = 1024):
         # print("##############################\nLIBROSA\n##################################")
         #append data to the collected chunks
         self.audioChunks = np.append(self.audioChunks, chunk)
+        print(len(self.audioChunks))
+        print(len(self.lengths))
         self.lengths.append(chunk.shape[0])
 
         #remove oldest audio chunk data. We keep only eight newest chunks
-        if (len(self.lengths) > 8):
+        if (len(self.lengths) > 4):
             self.audioChunks = self.audioChunks[self.lengths.pop(0):]
         
         #feed data into librosa and get only the data pertaining to new portion
