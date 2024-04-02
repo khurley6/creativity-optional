@@ -11,7 +11,6 @@ import light_example_scene from "./components/light_example_scene.vue";
 const server_route = "0.0.0.0:8000";
 let sound_bar = ref("");
 let sound_volume = ref(0);
-let beat = ref("");
 let fft = ref([]);
 let selected_item = ref({"id": "", "name": ""});
 let sound_options = ref([]);
@@ -49,12 +48,6 @@ async function updateSoundData() {
   let r = await response.json();
   sound_bar.value = r.bars;
   sound_volume.value = r.peak;
-  if (r.librosa_data){
-    beat = r.librosa_data.pulse_bar;
-  }
-  else{
-    beat = "";
-  }
   //console.log(sound_bar.value);
 }
 async function updateFFTData() {
@@ -91,7 +84,6 @@ onBeforeUnmount(() => {
     <p>Audio Device: {{ selected_input }}</p>
     <p> Current Audio: {{ sound_bar }}</p>
     <p> Current Volume: {{ sound_volume }}</p>
-    <p> Librosa Beat: {{ beat }}</p>
     <!--<v-combobox
       label="audio input"
       :items="sound_options"
