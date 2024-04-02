@@ -28,30 +28,8 @@ from flask import Flask, render_template, request, jsonify
 import numpy as np
 import logging
 import warnings
-#from celery import Celery, Task
-
-# using basic template from: https://flask.palletsprojects.com/en/2.3.x/patterns/celery/
-# might want to just copy this instead: https://github.com/pallets/flask/tree/main/examples/celery
-#def celery_init_app(app: Flask) -> Celery:
-#    class FlaskTask(Task):
-##        def __call__(self, *args: object, **kwargs: object) -> object:
-#            with app.app_context():
-#                return self.run(*args, **kwargs)#
-#
-#    celery_app = Celery(app.name, task_cls=FlaskTask)
-#    celery_app.config_from_object(app.config["CELERY"])
-#    celery_app.set_default()
-#    app.extensions["celery"] = celery_app
-#    return celery_app
-
-
-log = logging.getLogger('werkzeug')
-log.setLevel(logging.ERROR)
 
 flask_app = Flask(__name__, template_folder='.')
-#flask_app.config.from_pyfile('flask_config.py')
-#celery_app = celery_init_app(flask_app)
-
 
 audio_str = ""
 audio_source = ""
@@ -95,7 +73,7 @@ def audio_in():
     """
     warnings.warn("Using HTTP to send and recieve audio data is going to be deprecated in a later version",
                   DeprecationWarning)
-    # TODO: change this later, it is just for testing
+    # TODO: change this later, it is just for testing and the MVP apparently
     global audio_str
     global audio_source
     global audio_chunk
@@ -126,7 +104,6 @@ def audio_in():
                 print(f"{audio_source} != {data['source']}")
                 response["source"] = audio_source
         response = jsonify(response)
-        #response.headers.add("Access-Control-Allow-Origin", "*")
         return response
     else:
         response = jsonify({"bars": audio_str, "peak": audio_max_last, "source": audio_source})
@@ -135,16 +112,11 @@ def audio_in():
         return response
     
 
-
 @flask_app.route("/fft_audio", methods=['GET'])
 def fft_audio():
     """
     Do a FFT and return the data
-    used for integration with raspberry pi pico
-    this was just an experiment though
-
-    TODO: make sure all useful parts of this function are captured
-    TODO: delete this function
+    TODO: shift array to only capture useful frequency range
     """
     num_motors = 8
     if len(audio_chunk) > 0:
@@ -158,26 +130,14 @@ def fft_audio():
         return jsonify({'frequencies': [0, 0, 0, 0, 0, 0, 0, 0]})
 
 
-@flask_app.route("/pico_audio", methods=['GET'])
-def pico_audio():
+@flask_app.route("/output", methods=['GET'])
+def output_page():
     """
-    Do a FFT and return the data
-    used for integration with raspberry pi pico
-    this was just an experiment though
-
-    TODO: make sure all useful parts of this function are captured
-    TODO: delete this function
+    Display just the threejs scene.
+    This is how other programs get our output
     """
-    num_motors = 8
-    if len(audio_chunk) > 0:
-        #return audio_chunk.tolist()
-        fft = np.fft.fft(audio_chunk).real
-        chunk_size = fft.size / num_motors
-        avg_chunks = np.abs(np.average(fft.reshape(-1, int(chunk_size)), axis=1))
-        normalized_chunks = avg_chunks # / avg_chunks.size
-        return jsonify({"motors": normalized_chunks.tolist()})
-    else:
-        return jsonify({'motors': [0, 0, 0, 0, 0, 0, 0, 0]})
+    #TODO: tell the vue app to build a MPA
+    return render_template("")
 
 if __name__ == "__main__":
     flask_app.run()
