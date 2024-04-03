@@ -65,14 +65,13 @@ def get_audio_source():
 @flask_app.route("/audio_in", methods=['GET', 'POST'])
 def audio_in():
     """
-    Old HTTP implementation to send audio data to server
+    HTTP implementation to send audio data to server
     Keeping it for compatability
     How the local application to the server.
     It is also called by the frontend UI to test the dynamic site,
-    although this will likely change
+    although this will might change in the future.
+    When compared to performance of minimal udp packets, there was only a difference of 0.01 seconds of latency (0.22 vs 0.21)
     """
-    warnings.warn("Using HTTP to send and recieve audio data is going to be deprecated in a later version",
-                  DeprecationWarning)
     # TODO: change this later, it is just for testing and the MVP apparently
     global audio_str
     global audio_source
