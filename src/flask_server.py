@@ -1,8 +1,6 @@
 """
 Server that runs in the docker container
 
-TODO: update this documentation
-
 This server should call the blackbox processes and receive requests from the audio client
 NOTE: technically, the "client" application "serves" raw audio to this application
 
@@ -20,14 +18,10 @@ might want to open a second port for the audio if we are *slow* because of the c
 - this is not a concern at the moment
 
 Server: Flask
-
-TODO: make api calls for Vue front end 
-TODO: decide on a format for the api calls
 """
 from flask import Flask, render_template, request, jsonify
 import numpy as np
-import logging
-import warnings
+
 
 flask_app = Flask(__name__, template_folder='.')
 
@@ -71,6 +65,10 @@ def audio_in():
     It is also called by the frontend UI to test the dynamic site,
     although this will might change in the future.
     When compared to performance of minimal udp packets, there was only a difference of 0.01 seconds of latency (0.22 vs 0.21)
+
+
+    TODO: change how setting changes are communicated back to the client
+    client is expecting 'settings' key that contains any updated settings
     """
     # TODO: change this later, it is just for testing and the MVP apparently
     global audio_str
@@ -136,7 +134,23 @@ def output_page():
     This is how other programs get our output
     """
     #TODO: tell the vue app to build a MPA
-    return render_template("")
+    return render_template("outputscene/outputscene.html")
+
+@flask_app.route("/output/stream", methods=['GET'])
+def output_stream():
+    """
+    Serve next frame of video
+
+    Plan:
+    use the server-side rendering aspects of threejs
+    that most likely means we will have a node application constantly rendering the scene that output images to a folder
+    this method then grabs the most recent one and sends it to the client
+
+    this would *only* be useful when running the server on a second device because it would introduce more overhead
+    that and, why send it back and forth if you are just rendering locally anyways
+    """
+    return jsonify({'error': 'not implemented, look at creativity-optional wiki'})
+    
 
 if __name__ == "__main__":
     flask_app.run()
