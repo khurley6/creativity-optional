@@ -1,5 +1,3 @@
 soundcard
 numpy
-zeroconf
-python-socketio[asyncio_client]
 requests
