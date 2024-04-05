@@ -86,6 +86,7 @@ def send_audio(chosen_mic, ip, settings) -> bool:
                             logging.warn(f"trying to update a setting that does not exist\nunable to find key: {item}")
                     logging.info("restarting with new settings")
                     return True
+                logging.warn(f"latency: {mic.latency}")
 
 def main():
     """
@@ -103,8 +104,36 @@ def main():
         'source': sc.default_microphone().id
     }
     args = sys.argv[1:]
-    if len(args) > 0:
-        logging.warn("support for command line arguments has not been implemented yet")
+    while args:
+        next = args.pop(0)
+        if next == '-ip':
+            try:
+                DOCKER_IP = args.pop(0)
+            except:
+                logging.error("failed to parse command line arguments -ip used but no ip given")
+                usage(1)
+        elif next == '--loopback':
+            settings['loopback'] = True
+        elif next == '-b' or next == '--blocksize':
+            try:
+                settings['blocksize'] = int(args.pop(0))
+            except:
+                logging.error("failed to parse command line arguments - bad blocksize")
+                usage(1)
+        elif next == '--samplerate':
+            try:
+                settings['samplerate'] = int(args.pop(0))
+            except:
+                logging.error("failed to parse command line arguments - bad samplerate")
+                usage(1)
+        elif next == '-s' or next == '--source':
+            try:
+                settings['source'] = args.pop(0)
+            except:
+                logging.error("failed to parse command line arguments - no source given")
+                usage(1)
+        else:
+            usage(1)
     
     if not send_settings(DOCKER_IP, settings):
         return
