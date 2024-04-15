@@ -31,3 +31,5 @@
 LICENSE
 README.md
 **/testing
+**/package-lock.json
+**/node_modules
