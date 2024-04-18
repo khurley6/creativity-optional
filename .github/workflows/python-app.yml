@@ -28,7 +28,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install flake8 pytest
         sudo apt-get install libasound-dev portaudio19-dev libportaudio2 libportaudiocpp0
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        if [ -f docker-pip-requirements.txt ]; then pip install -r docker-pip-requirements.txt; fi
+        if [ -f local-pip-requirements.txt ]; then pip install -r local-pip-requirements.txt; fi
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
