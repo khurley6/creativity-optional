@@ -57,8 +57,6 @@ async function updateFFTData() {
 }
 
 function countDownFunc () {
-  //console.log("updating sound data");
-  // NOTE: when testing without audio data, comment out this function call
   updateSoundData();
   updateFFTData();
 }
@@ -80,8 +78,9 @@ onBeforeUnmount(() => {
 
 <template>
   <main>
+    <v-progress-linear max=1 model-value=0 v-model="sound_volume" :height="12"></v-progress-linear>
     <v-btn @click="getSoundOptions">Get Sound Options</v-btn>
-    <p>Audio Device: {{ selected_input }}</p>
+    <p> Audio Device: {{ selected_input }}</p>
     <p> Current Audio: {{ sound_bar }}</p>
     <p> Current Volume: {{ sound_volume }}</p>
     <!--<v-combobox
@@ -92,7 +91,6 @@ onBeforeUnmount(() => {
       single-line
       return-object
       ></v-combobox>-->
-    <v-progress-linear max=1 model-value=0 v-model="sound_volume" :height="12"></v-progress-linear>
 
     <light_example_scene :volume="sound_volume"/>
   </main>

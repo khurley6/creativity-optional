@@ -6,13 +6,20 @@ import ViteFonts from 'unplugin-fonts/vite'
 // Utilities
 import { defineConfig } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
+const { resolve } = require('path')
 
 // https://vitejs.dev/config/
 export default defineConfig({
   build: {
     outDir: '../src/',
     assetsDir: 'static/assets/',
-    emptyOutDir: false
+    emptyOutDir: false,
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        outputscene: resolve(__dirname, 'outputscene/outputscene.html')
+      }
+    }
   },
   plugins: [
     Vue({
