@@ -1,7 +1,7 @@
 <template>
     <div id="container"></div>
-  </template>
-  <script>
+</template>
+<script>
   import * as THREE from 'three'
   function distance(a, b) {
     return Math.sqrt((a - b) * (a - b))
@@ -13,7 +13,8 @@
       }
     },
     props: {
-        volume: Number
+        volume: Number,
+        fft: Array
     },
     methods: {
       init: function() {

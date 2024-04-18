@@ -1,101 +1,95 @@
 """
 Server that runs in the docker container
+It serves the pre-built vue frontend
 
-TODO: update this documentation
-
-This server should call the blackbox processes and receive requests from the audio client
-NOTE: technically, the "client" application "serves" raw audio to this application
+NOTE: technically, the "client" application "serves" raw audio/data to this application
 
 
 Technical:
 audio is posted to ip/audio_in
-video should be available at ip/video/id
+video should be available at ip/output and ip/output/stream
 
-A Vue site should be the only thing that has direct communication with this application
-it should not be available outside of the docker container (except MAYBE the video stream)
-although for now it is available because the Vue site doesnt exist and I needed to test
-the audio input
 
 might want to open a second port for the audio if we are *slow* because of the constant audio requests
 - this is not a concern at the moment
 
 Server: Flask
 
-TODO: make api calls for Vue front end 
-TODO: decide on a format for the api calls
+Tasks:
+[TODO] support caching for general data
+[TODO] handle general data
+[TODO] make general data accessable to frontend via api calls for specific keys
+[TODO] add route to send available keys to frontend
+[TODO] clean up audio handling
+[TODO] deal with keep-alive connections
+
 """
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, abort
+from werkzeug.serving import WSGIRequestHandler
 import numpy as np
 import logging
-import warnings
-#from celery import Celery, Task
 
-# using basic template from: https://flask.palletsprojects.com/en/2.3.x/patterns/celery/
-# might want to just copy this instead: https://github.com/pallets/flask/tree/main/examples/celery
-#def celery_init_app(app: Flask) -> Celery:
-#    class FlaskTask(Task):
-##        def __call__(self, *args: object, **kwargs: object) -> object:
-#            with app.app_context():
-#                return self.run(*args, **kwargs)#
-#
-#    celery_app = Celery(app.name, task_cls=FlaskTask)
-#    celery_app.config_from_object(app.config["CELERY"])
-#    celery_app.set_default()
-#    app.extensions["celery"] = celery_app
-#    return celery_app
-
-
-log = logging.getLogger('werkzeug')
-log.setLevel(logging.ERROR)
 
 flask_app = Flask(__name__, template_folder='.')
-#flask_app.config.from_pyfile('flask_config.py')
-#celery_app = celery_init_app(flask_app)
-
+flask_app.logger.setLevel(logging.DEBUG)
 
 audio_str = ""
-audio_source = ""
 audio_raw_max = 0
 AUDIO_SAVED_CHUNKS = 5
 audio_last = []
 audio_max_last = audio_raw_max
 # TODO: find a good way to store many past chunks (preferably both push and pop are o(1))
 audio_chunk = []
-all_audio = {}
+# TODO: gracefully handle client settings
+change_settings = False
+client_audio_settings = dict()
+
+# general data
+general_data = dict()
+
+
 @flask_app.route("/")
 def main_page():
     return render_template('index.html')
 
-@flask_app.route("/audio_source", methods = ['GET', 'POST'])
-def get_audio_source():
+@flask_app.route("/audio_settings", methods = ['GET', 'POST'])
+def get_audio_settings():
     """
     This might end up being obsolete, but adding the header for now
     """
-    global all_audio
-    global audio_source
+    global client_audio_settings
+    global change_settings
     if request.method == "POST":
         data = request.form
-        if "mics" in data:
-            all_audio = data["mics"]
-        if "source" in data:
-            audio_source = data["source"]
-        return jsonify({"source": audio_source, "mics": all_audio})
+        response = {}
+        flask_app.logger.info(f"received {data}")
+        if "settings" in data:
+            response['message'] = f"Updated: {','.join(token for token in data['settings'])}"
+            for token in data['settings']:
+                client_audio_settings[token] = data[token]
+            change_settings = True
+        else:
+            response['message'] = "Error: settings must be a dict in a 'settings' key"
+        return jsonify(response)
     else:
-        return jsonify({"source": audio_source, "mics": all_audio})
+        return jsonify({"settings": client_audio_settings})
 
 
 @flask_app.route("/audio_in", methods=['GET', 'POST'])
 def audio_in():
     """
-    Old HTTP implementation to send audio data to server
+    HTTP implementation to send audio data to server
     Keeping it for compatability
     How the local application to the server.
     It is also called by the frontend UI to test the dynamic site,
-    although this will likely change
+    although this will might change in the future.
+    When compared to performance of minimal udp packets, there was only a difference of 0.01 seconds of latency (0.22 vs 0.21)
+
+
+    TODO: change how setting changes are communicated back to the client
+    client is expecting 'settings' key that contains any updated settings
     """
-    warnings.warn("Using HTTP to send and recieve audio data is going to be deprecated in a later version",
-                  DeprecationWarning)
-    # TODO: change this later, it is just for testing
+    # TODO: change this later, it is just for testing and the MVP apparently
     global audio_str
     global audio_source
     global audio_chunk
@@ -103,6 +97,7 @@ def audio_in():
     global audio_last
     global audio_max_last
     global AUDIO_SAVED_CHUNKS
+    global change_settings
     if request.method == 'POST':
         data = request.json
         audio_chunk = np.array(data['data']).reshape(-1)
@@ -111,6 +106,7 @@ def audio_in():
         audio_raw_max = rpeak
         # NOTE: all of this computation is better done in a celery task, but since those arent set up yet,
         # doing basic analysis here
+        # NOTE: celery tasks may never be implemented because we no longer have a need for them (no librosa)
         audio_last.append(rpeak)
         if (len(audio_last) > AUDIO_SAVED_CHUNKS):
             audio_last.pop(0)
@@ -119,32 +115,70 @@ def audio_in():
         bars = "#" * int(50 * ravg)
         mbars = "-" * int((50 * rpeak) - (50 * ravg))
         audio_str = bars + mbars
-
         response = {"bars": audio_str}
-        if "source" in data:
-            if data["source"] != audio_source:
-                print(f"{audio_source} != {data['source']}")
-                response["source"] = audio_source
-        response = jsonify(response)
-        #response.headers.add("Access-Control-Allow-Origin", "*")
-        return response
+
+        if change_settings:
+            response['setting_change'] = change_settings
+            change_settings = False
+        return jsonify(response)
     else:
         response = jsonify({"bars": audio_str, "peak": audio_max_last, "source": audio_source})
         # TODO: the actual CORS policy
         response.headers.add("Access-Control-Allow-Origin", "*")
         return response
+
+@flask_app.route("/general_in", methods=['POST'])
+def general_in():
+    """
+    Recieve misc information of the form
+    { 
+    key: data,
+    type: type(data)
+    }
+
+    At the moment, only int is supported as a data type and
+    all data is assumed to be a range between 0 and 100
+    """
+    global general_data
+    assert request.method == 'POST', "the route /general_in only supports POSTs"
+    data = request.json
+    assert 'type' in data, "request to /general_in did not specify the data type"
+    for key in data:
+        if key == 'type':
+            continue
+        flask_app.logger.info(f"Updating general data: {key}: {data[key]}")
+        general_data[key] = data[key]
+    response = {"message": f"received data for {key in data if key != 'type' else ''}"}
+    return jsonify(response)
+
+@flask_app.route("/general_keys", methods=['GET'])
+def general_keys():
+    """
+    Return a list of all known general_data keys
+    """
+    response = {"keys": [key for key in general_data]}
+    return jsonify(response)
+
+@flask_app.route("/general_keys/<string:key>", methods=['GET'])
+def get_key(key):
+    """
+    Return the data for a specific key
+
+    This route will be used by the front-end to pull each key when it has been updated
+    """
+    response = {}
+    if key in general_data:
+        response[key] = general_data[key]
+    else:
+        abort(404)
     
-
-
+    return jsonify(response)
+    
 @flask_app.route("/fft_audio", methods=['GET'])
 def fft_audio():
     """
     Do a FFT and return the data
-    used for integration with raspberry pi pico
-    this was just an experiment though
-
-    TODO: make sure all useful parts of this function are captured
-    TODO: delete this function
+    TODO: shift array to only capture useful frequency range
     """
     num_motors = 8
     if len(audio_chunk) > 0:
@@ -158,26 +192,38 @@ def fft_audio():
         return jsonify({'frequencies': [0, 0, 0, 0, 0, 0, 0, 0]})
 
 
-@flask_app.route("/pico_audio", methods=['GET'])
-def pico_audio():
+@flask_app.route("/output", methods=['GET'])
+def output_page():
     """
-    Do a FFT and return the data
-    used for integration with raspberry pi pico
-    this was just an experiment though
+    Display just the threejs scene.
+    This is how other programs get our output (as html)
+    """
+    return render_template("outputscene/outputscene.html")
 
-    TODO: make sure all useful parts of this function are captured
-    TODO: delete this function
+@flask_app.route("/output/stream", methods=['GET'])
+def output_stream():
     """
-    num_motors = 8
-    if len(audio_chunk) > 0:
-        #return audio_chunk.tolist()
-        fft = np.fft.fft(audio_chunk).real
-        chunk_size = fft.size / num_motors
-        avg_chunks = np.abs(np.average(fft.reshape(-1, int(chunk_size)), axis=1))
-        normalized_chunks = avg_chunks # / avg_chunks.size
-        return jsonify({"motors": normalized_chunks.tolist()})
-    else:
-        return jsonify({'motors': [0, 0, 0, 0, 0, 0, 0, 0]})
+    Serve next frame of video
+
+    Plan:
+    use the server-side rendering aspects of threejs
+    that most likely means we will have a node application constantly rendering the scene that output images to a folder
+    this method then grabs the most recent one and sends it to the client
+
+    this would *only* be useful when running the server on a second device because it would introduce more overhead
+    that and, why send it back and forth if you are just rendering locally anyways
+    """
+    return jsonify({'error': 'not implemented, look at creativity-optional wiki'})
+
+@flask_app.errorhandler(404)
+def page_not_found(error):
+    """
+    Error page.
+    May someone please make this
+    """
+    return "page not found", 404
+    
 
 if __name__ == "__main__":
+    WSGIRequestHandler.protocol_version = "HTTP/1.1"
     flask_app.run()

@@ -1,5 +1,4 @@
 // Plugins
-import Components from 'unplugin-vue-components/vite'
 import Vue from '@vitejs/plugin-vue'
 import Vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
 import ViteFonts from 'unplugin-fonts/vite'
@@ -7,13 +6,20 @@ import ViteFonts from 'unplugin-fonts/vite'
 // Utilities
 import { defineConfig } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
+const { resolve } = require('path')
 
 // https://vitejs.dev/config/
 export default defineConfig({
   build: {
     outDir: '../src/',
     assetsDir: 'static/assets/',
-    emptyOutDir: false
+    emptyOutDir: false,
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        outputscene: resolve(__dirname, 'outputscene/outputscene.html')
+      }
+    }
   },
   plugins: [
     Vue({
@@ -21,7 +27,6 @@ export default defineConfig({
     }),
     // https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin#readme
     Vuetify(),
-    Components(),
     ViteFonts({
       google: {
         families: [{

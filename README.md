@@ -1,37 +1,25 @@
 # creativity-optional
 
-Light organization program for all your gamer-cave needs
+Real-time dynamic video generator for all your gamer-cave needs
 
 # What is this project?
 
-This project is a script that generates a stream of images based on song selection/system audio and sends the stream to an output of your choice.
+This project is a server that generates a stream of images based on user-specified inputs.
+The base scene is done in three.js
+Right now we support input from arbitrary shell commands and specialized input from audio devices.
 
-## Available outputs:
+## How do you run it?
 
-- [ ] Computer monitor
-- [ ] keyboard / peripheral devices
-- [ ] room lights
-- [ ] web stream
-- [x] three.js scene
+Check out the tutorial on our [wiki](https://github.com/BCaven/creativity-optional/wiki/Installation-Guide).
 
-## Sound input methods:
-
-- [x] system audio / microphone data
-
-# Goals:
+# Goals for future releases:
 
 - [ ] uv mapping for outputs
-- [x] real-time light reactions
-- [ ] plug-and-play connection to third party apis
-
-# downloading/installing
-
-You will need two things, a local audio server that sends audio data to the creativity-optional application and the creativity-optional [docker image](https://hub.docker.com/r/bcaven/creativity-optional-web).
-Detailed instructions are available in the [wiki](https://github.com/BCaven/creativity-optional/wiki).
+- [ ] server-side rendering
 
 # Contributing to this project:
 
-Please refer to the [wiki](https://github.com/BCaven/creativity-optional/wiki)
+Look at the [wiki](https://github.com/BCaven/creativity-optional/wiki/Contributing-to-this-project) for a more detailed overview of the project and how it is set up.
 
 Both `main` and `develop` branches are protected. 
 To contribute first find or make an issue in the [issues](https://github.com/BCaven/creativity-optional/issues) tab.
