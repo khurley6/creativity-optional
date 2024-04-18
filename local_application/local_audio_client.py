@@ -19,10 +19,13 @@ import numpy as np
 import sys
 import requests
 import logging
+logging.basicConfig(format='[%(levelname)s] %(message)s')
+logging.getLogger().setLevel(logging.DEBUG)
+session = requests.Session()
 
 
 
-def usage(return_val):
+def usage(return_val: int):
     print("""
 please write this...
 
@@ -30,24 +33,42 @@ please write this...
     sys.exit(return_val)
 
 
-def send_settings(ip, settings) -> bool:
+def send_settings(ip: str, settings: dict) -> bool:
     """
     Send all settings
     Runs when the application starts and if it is requested by the server
 
     Returns if the function ran successfully
     """
-    # send the list
+    # send the settings dict
     # for now we do not care about the response
     try:
-        _ = requests.post(ip + "audio_source", json=settings)
+        logging.info(f"sending settings: {settings}")
+        _ = session.post(ip + "audio_settings", json=settings)
+    except requests.exceptions.ConnectionError:
+        logging.warning("The server did not respond, is it running?")
+        return False
+    return True
+
+def update_settings(ip: str, settings: dict) -> bool:
+    """
+    ask the server for new settings
+    """
+    try:
+        response = session.get(ip + "audio_settings")
+        jresponse = response.json()
+        assert 'settings' in jresponse, f"malformed response from server - no 'settings' key"
+        for token in jresponse['settings']:
+            settings[token] = jresponse['settings'][token]
+        logging.info(f"settings got updated: {settings}")
     except requests.exceptions.ConnectionError:
         logging.warning("The server did not respond, is it running?")
         return False
     return True
 
 
-def send_audio(chosen_mic, ip, settings) -> bool:
+
+def send_audio(chosen_mic, ip: str, settings: dict) -> bool:
     """
     Continuously send audio from the current settings until the server responds with new settings
     the actual number of frames in each chunk is the block size
@@ -72,21 +93,14 @@ def send_audio(chosen_mic, ip, settings) -> bool:
                     "data": data.tolist(),
                 }
                 try:
-                    response = requests.post(ip + "audio_in", json=payload).json()
+                    response = session.post(ip + "audio_in", json=payload).json()
                 except requests.exceptions.ConnectionError:
                     logging.error("server did not respond, exiting...")
                     return False
                 
-                if "settings" in response:
-                    # change all of the modified settings and return
-                    for item in response['settings']:
-                        if item in settings:
-                            settings[item] = response['settings'][item]
-                        else:
-                            logging.warn(f"trying to update a setting that does not exist\nunable to find key: {item}")
-                    logging.info("restarting with new settings")
+                if "change_settings" in response:
+                    logging.info("stopping because new settings are available")
                     return True
-                logging.warn(f"latency: {mic.latency}")
 
 def main():
     """
@@ -94,6 +108,7 @@ def main():
     """
     # BUG: fuzzy search grabs loopback devices when given the name of the actual device (non-loopback)
     DOCKER_IP="http://127.0.0.1:8000/"
+    # default is to not include loopback
     loopback = False
 
     settings = {
@@ -137,16 +152,16 @@ def main():
     
     if not send_settings(DOCKER_IP, settings):
         return
-    
+        
     while True:
         chosen_mic = sc.get_microphone(settings['source'], include_loopback=settings['loopback'])
         # send_audio should block
         if not send_audio(chosen_mic, DOCKER_IP, settings):
             return
         
-        # if send_audio stopped and returned true then the settings got updated
-        # send the new settings back to the server to update the frontend
-        if not send_settings(DOCKER_IP, settings):
+        # if send_audio stopped and returned true then the settings need to be
+        # updated
+        if not update_settings(DOCKER_IP, settings):
             return
 
 
