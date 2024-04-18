@@ -10,9 +10,12 @@ this is supposed to be a background task started with cron/equivalent
 settings should be changed either through the command line arguments or through
 the creativity-optional frontend
 
-TODO: finish transition to functions
-TODO: look into async httpx
-TODO: command line arguments
+Tasks:
+[DONE]: finish transition to functions
+[DONE]: look into async httpx
+[DONE]: command line arguments
+[TODO]: write usage function
+[TODO]: write an equivalent using pyaudio and pyaudio(WASPI patch)
 """
 import soundcard as sc
 import numpy as np
