@@ -24,7 +24,7 @@ Tasks:
 [TODO] deal with keep-alive connections
 
 """
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, abort
 from werkzeug.serving import WSGIRequestHandler
 import numpy as np
 import logging
@@ -158,8 +158,22 @@ def general_keys():
     """
     response = {"keys": [key for key in general_data]}
     return jsonify(response)
-    
 
+@flask_app.route("/general_keys/<string:key>", methods=['GET'])
+def get_key(key):
+    """
+    Return the data for a specific key
+
+    This route will be used by the front-end to pull each key when it has been updated
+    """
+    response = {}
+    if key in general_data:
+        response[key] = general_data[key]
+    else:
+        abort(404)
+    
+    return jsonify(response)
+    
 @flask_app.route("/fft_audio", methods=['GET'])
 def fft_audio():
     """
@@ -200,6 +214,14 @@ def output_stream():
     that and, why send it back and forth if you are just rendering locally anyways
     """
     return jsonify({'error': 'not implemented, look at creativity-optional wiki'})
+
+@flask_app.errorhandler(404)
+def page_not_found(error):
+    """
+    Error page.
+    May someone please make this
+    """
+    return "page not found", 404
     
 
 if __name__ == "__main__":

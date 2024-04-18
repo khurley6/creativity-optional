@@ -12,24 +12,22 @@ Tasks:
 [DONE] support for commands passed as command line arguments
 [DONE] multiple commands running at different times/refresh rates
 [DONE] remove all the audio functions (the base for this was `local_audio_client.py`)
-[TODO] support for reading commands from a file
-[TODO] support for reading commands from stdin
-[TODO] support for different output types (int, str, float, etc)
+[DONE] support for reading commands from a file
 [TODO] multicast server IP detection
 [TODO] make sure we are asking to keep the connection alive
+[TODO] check if we actually need shlex
+[DONE] update try/except statements to only catch the specific error that might happen
 
 
 Passing in commands:
 Reading commands from a file
 One command per line
+-f [FILENAME]
 [KEY] [SLEEP_PERIOD] [COMMAND]
 
 Passing commands as arguments
 -c [KEY] [SLEEP_PERIOD] [COMMAND] --close
 breaks when an argument is '--close'
-
-Passing commands via stdin
-[KEY] [SLEEP_PERIOD] [COMMAND]
 
 Handling different types:
 Ideally we would be able to tell the server the type of the incoming data and have it process accordingly.
@@ -53,7 +51,7 @@ assert sys.version_info >= (3, 5)
 
 logging.basicConfig(format='[%(levelname)s] %(message)s')
 logging.getLogger().setLevel(logging.DEBUG)
-
+useShell = False
 running = True
 session = requests.Session()
 session.verify = True
@@ -84,8 +82,10 @@ def process_command(command) -> str:
     if type(command) == str:
         processed_command = shlex.split(command) 
     logging.debug(f"command after processing: {processed_command}")
-    result = subprocess.run(processed_command, stdout=subprocess.PIPE)
-    return result.stdout.decode('utf-8')
+    if useShell:
+        logging.warning("Using shell=True opens program to shell injections")
+    result = subprocess.run(processed_command, stdout=subprocess.PIPE, shell=useShell)
+    return result.stdout.decode('utf-8').rstrip()
 
 
 async def command_thread(key, sleep_period, command,  command_type) -> bool:
@@ -105,7 +105,11 @@ async def command_thread(key, sleep_period, command,  command_type) -> bool:
             'type': command_type
         }
         try:
-            response = session.post(DOCKER_IP + 'general_in', json=jresult)
+            # at the moment, we ignore the response
+            # might be interesting to let the server add/remove commands but for now
+            # that is not an option
+            _ = session.post(DOCKER_IP + 'general_in', json=jresult)
+            logging.debug(f"sent: {jresult}")
         except requests.exceptions.ConnectionError:
             logging.warning("The server did not respond, exiting...")
             running = False
@@ -113,7 +117,42 @@ async def command_thread(key, sleep_period, command,  command_type) -> bool:
         await asyncio.sleep(sleep_period)
     return True
 
+def parse_file(file: str) -> dict:
+    """
+    Read in commands from a file
 
+    One command per line, lines formatted like this:
+    [key] [sleep_period] [commands]...
+
+    NOTE: at the moment, it is assumed that you are ok with whatever command you have being executed here
+    The command is not checked for safety.
+
+    In the future we might need to clean this, but at the moment I think it is fine
+    """
+    command_dict = dict()
+    try:
+        with open(file, 'r') as cmd_file:
+            lines = cmd_file.readlines()
+            for line in lines:
+                cleaned = line.rstrip().split(' ')
+                assert len(cleaned) >= 3, f"malformed line: {line.rstrip()}"
+                key = cleaned.pop(0)
+                sleep_period = cleaned.pop(0)
+                try:
+                    sleep_period = int(sleep_period)
+                except ValueError:
+                    logging.error(f"sleep value: {sleep_period} could not be converted into an integer")
+                if '|' not in cleaned:
+                    command = shlex.split(' '.join(cleaned))
+                else:
+                    command = [ ' '.join(cleaned) ]
+                command_dict[key] = (sleep_period, 'int', command)
+
+    except FileNotFoundError:
+        logging.error(f"invalid file {file}")
+        usage(1)
+    
+    return command_dict
 
 async def main():
     """
@@ -126,6 +165,7 @@ async def main():
     current_key = ""
     current_command = []
     current_sleep_period = 0
+    command_file = ""
     while args:
         next = args.pop(0)
         if reading_command:
@@ -137,7 +177,7 @@ async def main():
         elif next == '-ip':
             try:
                 DOCKER_IP = args.pop(0)
-            except:
+            except IndexError:
                 logging.error("failed to parse command line arguments -ip used but no ip given")
                 usage(1)
         elif next == '-c':
@@ -146,10 +186,20 @@ async def main():
                 current_sleep_period = int(args.pop(0))
                 current_command = []
                 reading_command = True
-            except:
+            except (IndexError, ValueError):
+                usage(1)
+        elif next == '-f':
+            try:
+                command_file = args.pop(0)
+            except IndexError:
                 usage(1)
         else:
             usage(1)
+    # load the commands from a file if one was given
+    if command_file != "":
+        commands = parse_file(command_file)
+
+
     async with asyncio.TaskGroup() as tg:
         tasks = []
         for key in commands:
