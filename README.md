@@ -12,12 +12,9 @@ This project is a script that generates a stream of images based on song selecti
 - [ ] keyboard / peripheral devices
 - [ ] room lights
 
-## Sound input methods:
+## How do you run it?
 
-- [ ] system audio / audio from a specific application
-- [ ] spotify [API](https://developer.spotify.com/documentation/web-api)
-- [ ] amazon music [API](https://developer.amazon.com/docs/music/API_web_overview.html)
-- [ ] apple music [API](https://developer.apple.com/documentation/applemusicapi/)
+Check out the tutorial on our [wiki](https://github.com/BCaven/creativity-optional/wiki/Installation-Guide).
 
 # Goals:
 
