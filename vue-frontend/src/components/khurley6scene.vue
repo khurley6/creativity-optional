@@ -80,7 +80,7 @@ export default {
     beforeDestroy() {
         document.removeEventListener('mousemove', this.onmousemove, false);
     }
-}
+};
 </script>
 
 <style>
